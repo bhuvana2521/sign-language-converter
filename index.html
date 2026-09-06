@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASL Sign Language Detector</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #f0f0f0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    background: linear-gradient(90deg, #00e5ff, #00ff99);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 0.82rem;
+    color: #666;
+    margin-bottom: 18px;
+  }
+
+  .main-grid {
+    display: flex;
+    gap: 18px;
+    width: 100%;
+    max-width: 960px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .video-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #1e1e1e;
+    background: #000;
+    flex-shrink: 0;
+  }
+
+  video, canvas { display: block; }
+  #video   { width: 560px; max-width: 100%; }
+  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 240px;
+    flex: 1;
+  }
+
+  .card {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .card-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #555;
+    margin-bottom: 8px;
+  }
+
+  .prediction-big {
+    font-size: 5rem;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1;
+    color: #00ff99;
+    min-height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .conf-bar-wrap { margin-top: 6px; }
+  .conf-label { font-size: 0.75rem; color: #888; margin-bottom: 4px; }
+  .conf-bar-bg {
+    background: #2a2a2a;
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .conf-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #00c6ff, #00ff99);
+    transition: width 0.15s ease;
+  }
+
+  .top3 { display: flex; flex-direction: column; gap: 6px; }
+  .top3-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+  }
+  .top3-sign {
+    width: 28px;
+    font-weight: 700;
+    color: #00e5ff;
+    text-align: center;
+  }
+  .top3-bar-bg {
+    flex: 1;
+    background: #222;
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .top3-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: #00c6ff;
+    transition: width 0.15s ease;
+  }
+  .top3-pct {
+    width: 38px;
+    text-align: right;
+    color: #666;
+    font-size: 0.75rem;
+  }
+
+  /* Hold progress */
+  .hold-wrap { margin-top: 6px; }
+  .hold-bar-bg {
+    background: #222;
+    border-radius: 4px;
+    height: 10px;
+    overflow: hidden;
+  }
+  .hold-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #ff9900, #ffdd00);
+    transition: width 0.08s linear;
+  }
+  .hold-hint { font-size: 0.7rem; color: #555; margin-top: 4px; }
+
+  /* Text output */
+  .text-output {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #ffe066;
+    min-height: 46px;
+    word-break: break-all;
+    letter-spacing: 2px;
+  }
+  .text-output.empty { color: #333; font-size: 0.9rem; font-weight: 400; letter-spacing: 0; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  button {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+  #btn-clear  { background: #cc3333; color: #fff; }
+  #btn-space  { background: #333; color: #ccc; }
+  #btn-delete { background: #555; color: #ccc; }
+
+  /* Status bar */
+  #status {
+    margin-top: 14px;
+    font-size: 0.75rem;
+    color: #444;
+    text-align: center;
+  }
+  #status.ok  { color: #00bb66; }
+  #status.err { color: #cc4444; }
+
+  /* Loading overlay */
+  #loader {
+    position: fixed; inset: 0;
+    background: rgba(13,13,13,0.96);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 99;
+    gap: 14px;
+  }
+  .spinner {
+    width: 44px; height: 44px;
+    border: 4px solid #222;
+    border-top-color: #00e5ff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loader p { color: #888; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <p id="loader-msg">Loading model...</p>
+</div>
+
+<h1>ASL Sign Language Detector</h1>
+<p class="subtitle">Show your hand to the camera — hold a sign steady to register it</p>
+
+<div class="main-grid">
+  <!-- Camera feed -->
+  <div class="video-wrap">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <!-- Side panel -->
+  <div class="side-panel">
+
+    <!-- Big prediction -->
+    <div class="card">
+      <div class="card-label">Current Sign</div>
+      <div class="prediction-big" id="pred-big">—</div>
+      <div class="conf-bar-wrap">
+        <div class="conf-label">Confidence: <span id="conf-pct">0%</span></div>
+        <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Hold progress -->
+    <div class="card">
+      <div class="card-label">Hold to Register</div>
+      <div class="hold-wrap">
+        <div class="hold-bar-bg"><div class="hold-bar-fill" id="hold-bar" style="width:0%"></div></div>
+      </div>
+      <div class="hold-hint">Keep the sign still until the bar fills</div>
+    </div>
+
+    <!-- Top 3 -->
+    <div class="card">
+      <div class="card-label">Top Predictions</div>
+      <div class="top3" id="top3"></div>
+    </div>
+
+    <!-- Text output -->
+    <div class="card">
+      <div class="card-label">Converted Text</div>
+      <div class="text-output empty" id="text-out">(no text yet)</div>
+      <div class="btn-row">
+        <button id="btn-clear">Clear</button>
+        <button id="btn-space">Space</button>
+        <button id="btn-delete">Delete</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="status">Initialising...</div>
+
+<!-- MediaPipe Hands from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+// ── Random Forest inference in JS ─────────────────────────────────────────────
+class RandomForest {
+  constructor(modelData) {
+    this.classes = modelData.classes;
+    this.trees   = modelData.trees;
+  }
+
+  _predictTree(tree, feat) {
+    let node = 0;
+    while (true) {
+      const n = tree[node];
+      if (n[0] === 1) return n[1]; // leaf → class index
+      node = feat[n[1]] <= n[2] ? n[3] : n[4];
+    }
+  }
+
+  predict(feat) {
+    const votes = new Float32Array(this.classes.length);
+    for (const tree of this.trees) votes[this._predictTree(tree, feat)]++;
+    // softmax-style: convert to probabilities
+    const total = this.trees.length;
+    return Array.from(votes).map(v => v / total);
+  }
+}
+
+// ── Landmark normalisation (must match Python) ────────────────────────────────
+function extractFeatures(landmarks) {
+  // landmarks: array of 21 {x,y,z}
+  const raw = landmarks.map(lm => [lm.x, lm.y, lm.z]);
+  const wx = raw[0][0], wy = raw[0][1], wz = raw[0][2];
+  for (let i = 0; i < 21; i++) {
+    raw[i][0] -= wx; raw[i][1] -= wy; raw[i][2] -= wz;
+  }
+  const scale = Math.sqrt(raw[9][0]**2 + raw[9][1]**2 + raw[9][2]**2);
+  if (scale < 1e-6) return null;
+  const feat = new Float32Array(63);
+  for (let i = 0; i < 21; i++) {
+    feat[i*3]   = raw[i][0] / scale;
+    feat[i*3+1] = raw[i][1] / scale;
+    feat[i*3+2] = raw[i][2] / scale;
+  }
+  return feat;
+}
+
+// ── App state ─────────────────────────────────────────────────────────────────
+const CONFIDENCE_THRESH = 0.60;
+const STABLE_FRAMES     = 22;
+const COOLDOWN_FRAMES   = 30;
+
+let rf = null;
+let accText     = '';
+let lastLabel   = null;
+let stableCount = 0;
+let cooldown    = 0;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const videoEl   = document.getElementById('video');
+const overlayEl = document.getElementById('overlay');
+const ctx       = overlayEl.getContext('2d');
+const predBig   = document.getElementById('pred-big');
+const confPct   = document.getElementById('conf-pct');
+const confBar   = document.getElementById('conf-bar');
+const holdBar   = document.getElementById('hold-bar');
+const top3El    = document.getElementById('top3');
+const textOut   = document.getElementById('text-out');
+const statusEl  = document.getElementById('status');
+const loaderEl  = document.getElementById('loader');
+const loaderMsg = document.getElementById('loader-msg');
+
+function setStatus(msg, cls='') {
+  statusEl.textContent = msg;
+  statusEl.className   = cls;
+}
+
+function updateTextOut() {
+  if (accText.length === 0) {
+    textOut.textContent = '(no text yet)';
+    textOut.classList.add('empty');
+  } else {
+    textOut.textContent = accText;
+    textOut.classList.remove('empty');
+  }
+}
+
+document.getElementById('btn-clear').onclick  = () => { accText = ''; updateTextOut(); };
+document.getElementById('btn-space').onclick  = () => { accText += ' '; updateTextOut(); };
+document.getElementById('btn-delete').onclick = () => { accText = accText.slice(0,-1); updateTextOut(); };
+
+// ── Load model ────────────────────────────────────────────────────────────────
+loaderMsg.textContent = 'Loading model (465 KB)...';
+fetch('model.json')
+  .then(r => r.json())
+  .then(data => {
+    rf = new RandomForest(data);
+    loaderMsg.textContent = 'Starting camera...';
+    initCamera();
+  })
+  .catch(e => {
+    loaderMsg.textContent = 'Failed to load model: ' + e.message;
+    console.error(e);
+  });
+
+// ── MediaPipe Hands ───────────────────────────────────────────────────────────
+function initCamera() {
+  const handsModel = new Hands({
+    locateFile: file =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+
+  handsModel.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.6
+  });
+
+  handsModel.onResults(onResults);
+
+  const camera = new Camera(videoEl, {
+    onFrame: async () => { await handsModel.send({ image: videoEl }); },
+    width: 640, height: 480
+  });
+
+  camera.start()
+    .then(() => {
+      loaderEl.style.display = 'none';
+      setStatus('Camera active — show a hand sign', 'ok');
+    })
+    .catch(err => {
+      loaderMsg.textContent = 'Camera error: ' + err.message;
+      setStatus('Camera error', 'err');
+    });
+}
+
+// ── Per-frame callback ────────────────────────────────────────────────────────
+function onResults(results) {
+  // Sync canvas size with video
+  overlayEl.width  = videoEl.videoWidth  || 640;
+  overlayEl.height = videoEl.videoHeight || 480;
+
+  ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
+
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    // No hand — reset stable count
+    stableCount = 0;
+    lastLabel   = null;
+    predBig.textContent = '—';
+    predBig.style.color = '#333';
+    confBar.style.width = '0%';
+    confPct.textContent = '0%';
+    holdBar.style.width = '0%';
+    top3El.innerHTML    = '';
+    if (cooldown > 0) cooldown--;
+    return;
+  }
+
+  const landmarks = results.multiHandLandmarks[0];
+  const W = overlayEl.width, H = overlayEl.height;
+
+  // Draw skeleton
+  drawConnectors(ctx, landmarks, HAND_CONNECTIONS,
+    { color: '#00e5ff', lineWidth: 2 });
+  drawLandmarks(ctx, landmarks,
+    { color: '#00ff99', lineWidth: 1, radius: 3 });
+
+  // Bounding box
+  const xs = landmarks.map(l => l.x * W);
+  const ys = landmarks.map(l => l.y * H);
+  const x1 = Math.max(0, Math.min(...xs) - 20);
+  const y1 = Math.max(0, Math.min(...ys) - 20);
+  const x2 = Math.min(W, Math.max(...xs) + 20);
+  const y2 = Math.min(H, Math.max(...ys) + 20);
+  ctx.strokeStyle = '#00ff99';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(x1, y1, x2-x1, y2-y1);
+
+  if (!rf) return;
+
+  // Extract features and predict
+  const feat = extractFeatures(landmarks);
+  if (!feat) return;
+
+  const proba = rf.predict(feat);
+  const sorted = proba
+    .map((p,i) => ({ label: rf.classes[i], p }))
+    .sort((a,b) => b.p - a.p);
+
+  const best = sorted[0];
+  const conf = best.p;
+
+  // ── Stable sign logic ──────────────────────────────────────────────────────
+  if (cooldown > 0) {
+    cooldown--;
+  } else {
+    if (best.label === lastLabel) {
+      stableCount++;
+    } else {
+      lastLabel   = best.label;
+      stableCount = 1;
+    }
+    if (stableCount >= STABLE_FRAMES && conf >= CONFIDENCE_THRESH) {
+      accText += best.label;
+      updateTextOut();
+      stableCount = 0;
+      cooldown    = COOLDOWN_FRAMES;
+    }
+  }
+
+  // ── Update UI ──────────────────────────────────────────────────────────────
+  const pct = Math.round(conf * 100);
+  predBig.textContent = best.label;
+  predBig.style.color = conf >= CONFIDENCE_THRESH ? '#00ff99' : '#ff9900';
+  confPct.textContent = pct + '%';
+  confBar.style.width = pct + '%';
+
+  const holdPct = Math.min(stableCount / STABLE_FRAMES, 1) * 100;
+  holdBar.style.width = holdPct + '%';
+
+  // Label on canvas
+  const lbl = `${best.label}  ${pct}%`;
+  ctx.font         = 'bold 18px Segoe UI';
+  ctx.fillStyle    = '#000';
+  const tw = ctx.measureText(lbl).width;
+  ctx.fillRect(x1, y1 - 26, tw + 10, 22);
+  ctx.fillStyle = conf >= CONFIDENCE_THRESH ? '#00ff99' : '#ff9900';
+  ctx.fillText(lbl, x1 + 5, y1 - 9);
+
+  // Top 3 panel
+  top3El.innerHTML = sorted.slice(0,3).map((item, i) => `
+    <div class="top3-row">
+      <span class="top3-sign">${item.label}</span>
+      <div class="top3-bar-bg">
+        <div class="top3-bar-fill" style="width:${Math.round(item.p*100)}%;
+          background:${i===0?'#00ff99':'#00c6ff'}"></div>
+      </div>
+      <span class="top3-pct">${Math.round(item.p*100)}%</span>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>
