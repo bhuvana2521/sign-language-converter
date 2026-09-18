@@ -5,211 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ASL Sign Language Detector</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: #0d0d0d;
-    color: #f0f0f0;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-  }
-
-  h1 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
-    background: linear-gradient(90deg, #00e5ff, #00ff99);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .subtitle {
-    font-size: 0.82rem;
-    color: #666;
-    margin-bottom: 18px;
-  }
-
-  .main-grid {
-    display: flex;
-    gap: 18px;
-    width: 100%;
-    max-width: 960px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .video-wrap {
-    position: relative;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 2px solid #1e1e1e;
-    background: #000;
-    flex-shrink: 0;
-  }
-
-  video, canvas { display: block; }
-  #video   { width: 560px; max-width: 100%; }
-  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-
-  .side-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 240px;
-    flex: 1;
-  }
-
-  .card {
-    background: #161616;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 14px 16px;
-  }
-
-  .card-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #555;
-    margin-bottom: 8px;
-  }
-
-  .prediction-big {
-    font-size: 5rem;
-    font-weight: 800;
-    text-align: center;
-    line-height: 1;
-    color: #00ff99;
-    min-height: 88px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .conf-bar-wrap { margin-top: 6px; }
-  .conf-label { font-size: 0.75rem; color: #888; margin-bottom: 4px; }
-  .conf-bar-bg {
-    background: #2a2a2a;
-    border-radius: 4px;
-    height: 8px;
-    overflow: hidden;
-  }
-  .conf-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, #00c6ff, #00ff99);
-    transition: width 0.15s ease;
-  }
-
-  .top3 { display: flex; flex-direction: column; gap: 6px; }
-  .top3-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.82rem;
-  }
-  .top3-sign {
-    width: 28px;
-    font-weight: 700;
-    color: #00e5ff;
-    text-align: center;
-  }
-  .top3-bar-bg {
-    flex: 1;
-    background: #222;
-    border-radius: 3px;
-    height: 6px;
-    overflow: hidden;
-  }
-  .top3-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: #00c6ff;
-    transition: width 0.15s ease;
-  }
-  .top3-pct {
-    width: 38px;
-    text-align: right;
-    color: #666;
-    font-size: 0.75rem;
-  }
-
-  /* Hold progress */
-  .hold-wrap { margin-top: 6px; }
-  .hold-bar-bg {
-    background: #222;
-    border-radius: 4px;
-    height: 10px;
-    overflow: hidden;
-  }
-  .hold-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, #ff9900, #ffdd00);
-    transition: width 0.08s linear;
-  }
-  .hold-hint { font-size: 0.7rem; color: #555; margin-top: 4px; }
-
-  /* Text output */
-  .text-output {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #ffe066;
-    min-height: 46px;
-    word-break: break-all;
-    letter-spacing: 2px;
-  }
-  .text-output.empty { color: #333; font-size: 0.9rem; font-weight: 400; letter-spacing: 0; }
-
-  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
-  button {
-    flex: 1;
-    padding: 8px 0;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-  button:hover { opacity: 0.85; }
-  #btn-clear  { background: #cc3333; color: #fff; }
-  #btn-space  { background: #333; color: #ccc; }
-  #btn-delete { background: #555; color: #ccc; }
-
-  /* Status bar */
-  #status {
-    margin-top: 14px;
-    font-size: 0.75rem;
-    color: #444;
-    text-align: center;
-  }
-  #status.ok  { color: #00bb66; }
-  #status.err { color: #cc4444; }
-
-  /* Loading overlay */
-  #loader {
-    position: fixed; inset: 0;
-    background: rgba(13,13,13,0.96);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    z-index: 99;
-    gap: 14px;
-  }
-  .spinner {
-    width: 44px; height: 44px;
-    border: 4px solid #222;
-    border-top-color: #00e5ff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  #loader p { color: #888; font-size: 0.9rem; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0d;color:#f0f0f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.6rem;font-weight:700;letter-spacing:1px;margin-bottom:4px;background:linear-gradient(90deg,#00e5ff,#00ff99);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{font-size:.82rem;color:#666;margin-bottom:18px}
+.main-grid{display:flex;gap:18px;width:100%;max-width:980px;flex-wrap:wrap;justify-content:center}
+.video-wrap{position:relative;border-radius:12px;overflow:hidden;border:2px solid #1e1e1e;background:#000;flex-shrink:0}
+video,canvas{display:block}
+#video{width:560px;max-width:100vw}
+#overlay{position:absolute;top:0;left:0;width:100%;height:100%}
+.side-panel{display:flex;flex-direction:column;gap:14px;min-width:220px;flex:1}
+.card{background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:14px 16px}
+.card-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px}
+.prediction-big{font-size:5rem;font-weight:800;text-align:center;line-height:1;color:#00ff99;min-height:88px;display:flex;align-items:center;justify-content:center}
+.conf-label{font-size:.75rem;color:#888;margin-bottom:4px}
+.bar-bg{background:#2a2a2a;border-radius:4px;height:8px;overflow:hidden;margin-top:4px}
+.bar-fill{height:100%;border-radius:4px;transition:width .15s ease}
+#conf-bar{background:linear-gradient(90deg,#00c6ff,#00ff99)}
+#hold-bar{background:linear-gradient(90deg,#ff9900,#ffdd00);transition:width .08s linear}
+.hold-hint{font-size:.7rem;color:#555;margin-top:4px}
+.top3{display:flex;flex-direction:column;gap:6px}
+.top3-row{display:flex;align-items:center;gap:8px;font-size:.82rem}
+.top3-sign{width:28px;font-weight:700;color:#00e5ff;text-align:center}
+.top3-bar-bg{flex:1;background:#222;border-radius:3px;height:6px;overflow:hidden}
+.top3-bar-fill{height:100%;border-radius:3px;background:#00c6ff;transition:width .15s ease}
+.top3-pct{width:38px;text-align:right;color:#666;font-size:.75rem}
+.text-output{font-size:1.4rem;font-weight:600;color:#ffe066;min-height:46px;word-break:break-all;letter-spacing:2px}
+.text-output.empty{color:#333;font-size:.9rem;font-weight:400;letter-spacing:0}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+button{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer;transition:opacity .15s}
+button:hover{opacity:.85}
+#btn-clear{background:#cc3333;color:#fff}
+#btn-space{background:#333;color:#ccc}
+#btn-delete{background:#555;color:#ccc}
+#status{margin-top:14px;font-size:.75rem;color:#444;text-align:center}
+#status.ok{color:#00bb66}
+#status.err{color:#cc4444}
+#status.warn{color:#ff9900}
+#loader{position:fixed;inset:0;background:rgba(13,13,13,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99;gap:14px}
+.spinner{width:44px;height:44px;border:4px solid #222;border-top-color:#00e5ff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader p{color:#888;font-size:.9rem;text-align:center;max-width:300px}
 </style>
 </head>
 <body>
@@ -220,44 +56,33 @@
 </div>
 
 <h1>ASL Sign Language Detector</h1>
-<p class="subtitle">Show your hand to the camera — hold a sign steady to register it</p>
+<p class="subtitle">Show your hand — hold a sign steady until the bar fills to register it</p>
 
 <div class="main-grid">
-  <!-- Camera feed -->
   <div class="video-wrap">
     <video id="video" playsinline autoplay muted></video>
     <canvas id="overlay"></canvas>
   </div>
 
-  <!-- Side panel -->
   <div class="side-panel">
-
-    <!-- Big prediction -->
     <div class="card">
       <div class="card-label">Current Sign</div>
       <div class="prediction-big" id="pred-big">—</div>
-      <div class="conf-bar-wrap">
-        <div class="conf-label">Confidence: <span id="conf-pct">0%</span></div>
-        <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar" style="width:0%"></div></div>
-      </div>
+      <div class="conf-label">Confidence: <span id="conf-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="conf-bar" style="width:0%"></div></div>
     </div>
 
-    <!-- Hold progress -->
     <div class="card">
       <div class="card-label">Hold to Register</div>
-      <div class="hold-wrap">
-        <div class="hold-bar-bg"><div class="hold-bar-fill" id="hold-bar" style="width:0%"></div></div>
-      </div>
-      <div class="hold-hint">Keep the sign still until the bar fills</div>
+      <div class="bar-bg"><div class="bar-fill" id="hold-bar" style="width:0%"></div></div>
+      <div class="hold-hint">Keep sign still until bar fills</div>
     </div>
 
-    <!-- Top 3 -->
     <div class="card">
       <div class="card-label">Top Predictions</div>
       <div class="top3" id="top3"></div>
     </div>
 
-    <!-- Text output -->
     <div class="card">
       <div class="card-label">Converted Text</div>
       <div class="text-output empty" id="text-out">(no text yet)</div>
@@ -267,74 +92,62 @@
         <button id="btn-delete">Delete</button>
       </div>
     </div>
-
   </div>
 </div>
 
 <div id="status">Initialising...</div>
 
-<!-- MediaPipe Hands from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<!-- Use pinned version of MediaPipe for stability -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1620248257/camera_utils.js" crossorigin="anonymous"></script>
 
 <script>
-// ── Random Forest inference in JS ─────────────────────────────────────────────
+// ── Random Forest (JS) ────────────────────────────────────────────────────────
 class RandomForest {
-  constructor(modelData) {
-    this.classes = modelData.classes;
-    this.trees   = modelData.trees;
-  }
+  constructor(d) { this.classes = d.classes; this.trees = d.trees; }
 
-  _predictTree(tree, feat) {
-    let node = 0;
+  _walk(tree, feat) {
+    let i = 0;
     while (true) {
-      const n = tree[node];
-      if (n[0] === 1) return n[1]; // leaf → class index
-      node = feat[n[1]] <= n[2] ? n[3] : n[4];
+      const n = tree[i];
+      if (n[0] === 1) return n[1];       // leaf → class index
+      i = feat[n[1]] <= n[2] ? n[3] : n[4];
     }
   }
 
   predict(feat) {
-    const votes = new Float32Array(this.classes.length);
-    for (const tree of this.trees) votes[this._predictTree(tree, feat)]++;
-    // softmax-style: convert to probabilities
-    const total = this.trees.length;
-    return Array.from(votes).map(v => v / total);
+    const v = new Float32Array(this.classes.length);
+    for (const t of this.trees) v[this._walk(t, feat)]++;
+    const tot = this.trees.length;
+    return Array.from(v).map(x => x / tot);
   }
 }
 
-// ── Landmark normalisation (must match Python) ────────────────────────────────
+// ── Feature extraction (mirrors Python normalisation exactly) ─────────────────
 function extractFeatures(landmarks) {
-  // landmarks: array of 21 {x,y,z}
-  const raw = landmarks.map(lm => [lm.x, lm.y, lm.z]);
-  const wx = raw[0][0], wy = raw[0][1], wz = raw[0][2];
+  const raw = landmarks.map(l => [l.x, l.y, l.z]);
+  const [wx, wy, wz] = raw[0];
   for (let i = 0; i < 21; i++) {
     raw[i][0] -= wx; raw[i][1] -= wy; raw[i][2] -= wz;
   }
-  const scale = Math.sqrt(raw[9][0]**2 + raw[9][1]**2 + raw[9][2]**2);
+  const scale = Math.hypot(raw[9][0], raw[9][1], raw[9][2]);
   if (scale < 1e-6) return null;
-  const feat = new Float32Array(63);
+  const f = new Float32Array(63);
   for (let i = 0; i < 21; i++) {
-    feat[i*3]   = raw[i][0] / scale;
-    feat[i*3+1] = raw[i][1] / scale;
-    feat[i*3+2] = raw[i][2] / scale;
+    f[i*3] = raw[i][0]/scale; f[i*3+1] = raw[i][1]/scale; f[i*3+2] = raw[i][2]/scale;
   }
-  return feat;
+  return f;
 }
 
-// ── App state ─────────────────────────────────────────────────────────────────
-const CONFIDENCE_THRESH = 0.60;
-const STABLE_FRAMES     = 22;
-const COOLDOWN_FRAMES   = 30;
+// ── State ─────────────────────────────────────────────────────────────────────
+const CONF_THRESH   = 0.55;
+const STABLE_NEEDED = 20;
+const COOLDOWN      = 28;
 
-let rf = null;
-let accText     = '';
-let lastLabel   = null;
-let stableCount = 0;
-let cooldown    = 0;
+let rf = null, accText = '', lastLabel = null, stableCount = 0, cooldown = 0;
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
+// ── DOM ───────────────────────────────────────────────────────────────────────
 const videoEl   = document.getElementById('video');
 const overlayEl = document.getElementById('overlay');
 const ctx       = overlayEl.getContext('2d');
@@ -348,171 +161,164 @@ const statusEl  = document.getElementById('status');
 const loaderEl  = document.getElementById('loader');
 const loaderMsg = document.getElementById('loader-msg');
 
-function setStatus(msg, cls='') {
-  statusEl.textContent = msg;
-  statusEl.className   = cls;
+function setStatus(msg, cls='') { statusEl.textContent = msg; statusEl.className = cls; }
+function updateText() {
+  if (!accText) { textOut.textContent = '(no text yet)'; textOut.className = 'text-output empty'; }
+  else          { textOut.textContent = accText;          textOut.className = 'text-output'; }
 }
 
-function updateTextOut() {
-  if (accText.length === 0) {
-    textOut.textContent = '(no text yet)';
-    textOut.classList.add('empty');
-  } else {
-    textOut.textContent = accText;
-    textOut.classList.remove('empty');
-  }
-}
+document.getElementById('btn-clear').onclick  = () => { accText = ''; updateText(); };
+document.getElementById('btn-space').onclick  = () => { accText += ' '; updateText(); };
+document.getElementById('btn-delete').onclick = () => { accText = accText.slice(0,-1); updateText(); };
 
-document.getElementById('btn-clear').onclick  = () => { accText = ''; updateTextOut(); };
-document.getElementById('btn-space').onclick  = () => { accText += ' '; updateTextOut(); };
-document.getElementById('btn-delete').onclick = () => { accText = accText.slice(0,-1); updateTextOut(); };
-
-// ── Load model ────────────────────────────────────────────────────────────────
-loaderMsg.textContent = 'Loading model (465 KB)...';
+// ── Load model then start camera ──────────────────────────────────────────────
+loaderMsg.textContent = 'Loading model...';
 fetch('model.json')
-  .then(r => r.json())
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
   .then(data => {
     rf = new RandomForest(data);
-    loaderMsg.textContent = 'Starting camera...';
-    initCamera();
+    console.log('Model loaded, classes:', rf.classes.length);
+    loaderMsg.textContent = 'Model ready. Starting camera...';
+    startHandTracking();
   })
   .catch(e => {
     loaderMsg.textContent = 'Failed to load model: ' + e.message;
+    setStatus('Model load error', 'err');
     console.error(e);
   });
 
-// ── MediaPipe Hands ───────────────────────────────────────────────────────────
-function initCamera() {
-  const handsModel = new Hands({
+// ── MediaPipe Hands setup ─────────────────────────────────────────────────────
+function startHandTracking() {
+  const hands = new Hands({
     locateFile: file =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
   });
 
-  handsModel.setOptions({
+  hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.6
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
   });
 
-  handsModel.onResults(onResults);
+  hands.onResults(onResults);
 
-  const camera = new Camera(videoEl, {
-    onFrame: async () => { await handsModel.send({ image: videoEl }); },
-    width: 640, height: 480
-  });
-
-  camera.start()
-    .then(() => {
-      loaderEl.style.display = 'none';
-      setStatus('Camera active — show a hand sign', 'ok');
+  // Get camera stream manually for reliability
+  navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } })
+    .then(stream => {
+      videoEl.srcObject = stream;
+      videoEl.onloadedmetadata = () => {
+        videoEl.play();
+        loaderEl.style.display = 'none';
+        setStatus('Ready — show a hand sign to the camera', 'ok');
+        processFrame(hands);
+      };
     })
     .catch(err => {
       loaderMsg.textContent = 'Camera error: ' + err.message;
-      setStatus('Camera error', 'err');
+      setStatus('Camera error — check permissions', 'err');
     });
 }
 
-// ── Per-frame callback ────────────────────────────────────────────────────────
-function onResults(results) {
-  // Sync canvas size with video
-  overlayEl.width  = videoEl.videoWidth  || 640;
-  overlayEl.height = videoEl.videoHeight || 480;
+// ── Frame loop ────────────────────────────────────────────────────────────────
+let processing = false;
+async function processFrame(hands) {
+  if (!processing) {
+    processing = true;
+    try { await hands.send({ image: videoEl }); } catch(e) { console.warn(e); }
+    processing = false;
+  }
+  requestAnimationFrame(() => processFrame(hands));
+}
 
-  ctx.clearRect(0, 0, overlayEl.width, overlayEl.height);
+// ── Per-frame results ─────────────────────────────────────────────────────────
+function onResults(results) {
+  const W = videoEl.videoWidth  || 640;
+  const H = videoEl.videoHeight || 480;
+  overlayEl.width  = W;
+  overlayEl.height = H;
+  ctx.clearRect(0, 0, W, H);
 
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-    // No hand — reset stable count
-    stableCount = 0;
-    lastLabel   = null;
-    predBig.textContent = '—';
-    predBig.style.color = '#333';
-    confBar.style.width = '0%';
-    confPct.textContent = '0%';
-    holdBar.style.width = '0%';
-    top3El.innerHTML    = '';
+    stableCount = 0; lastLabel = null;
+    predBig.textContent = '—'; predBig.style.color = '#333';
+    confBar.style.width = '0%'; confPct.textContent = '0%';
+    holdBar.style.width = '0%'; top3El.innerHTML = '';
     if (cooldown > 0) cooldown--;
     return;
   }
 
-  const landmarks = results.multiHandLandmarks[0];
-  const W = overlayEl.width, H = overlayEl.height;
+  const lms = results.multiHandLandmarks[0];
 
-  // Draw skeleton
-  drawConnectors(ctx, landmarks, HAND_CONNECTIONS,
-    { color: '#00e5ff', lineWidth: 2 });
-  drawLandmarks(ctx, landmarks,
-    { color: '#00ff99', lineWidth: 1, radius: 3 });
+  // Draw landmarks & connections
+  if (typeof drawConnectors !== 'undefined') {
+    drawConnectors(ctx, lms, HAND_CONNECTIONS, { color: '#00e5ff', lineWidth: 2 });
+    drawLandmarks(ctx, lms, { color: '#00ff99', lineWidth: 1, radius: 3 });
+  } else {
+    // Fallback: draw dots manually if CDN draw utils didn't load
+    ctx.fillStyle = '#00ff99';
+    for (const l of lms) {
+      ctx.beginPath();
+      ctx.arc(l.x * W, l.y * H, 4, 0, 2*Math.PI);
+      ctx.fill();
+    }
+  }
 
   // Bounding box
-  const xs = landmarks.map(l => l.x * W);
-  const ys = landmarks.map(l => l.y * H);
-  const x1 = Math.max(0, Math.min(...xs) - 20);
-  const y1 = Math.max(0, Math.min(...ys) - 20);
-  const x2 = Math.min(W, Math.max(...xs) + 20);
-  const y2 = Math.min(H, Math.max(...ys) + 20);
-  ctx.strokeStyle = '#00ff99';
-  ctx.lineWidth   = 2;
+  const xs = lms.map(l => l.x * W), ys = lms.map(l => l.y * H);
+  const x1 = Math.max(0, Math.min(...xs)-20), y1 = Math.max(0, Math.min(...ys)-20);
+  const x2 = Math.min(W, Math.max(...xs)+20), y2 = Math.min(H, Math.max(...ys)+20);
+  ctx.strokeStyle = '#00ff99'; ctx.lineWidth = 2;
   ctx.strokeRect(x1, y1, x2-x1, y2-y1);
 
   if (!rf) return;
 
-  // Extract features and predict
-  const feat = extractFeatures(landmarks);
+  const feat = extractFeatures(lms);
   if (!feat) return;
 
-  const proba = rf.predict(feat);
-  const sorted = proba
-    .map((p,i) => ({ label: rf.classes[i], p }))
-    .sort((a,b) => b.p - a.p);
+  const proba  = rf.predict(feat);
+  const sorted = proba.map((p,i) => ({ label: rf.classes[i], p })).sort((a,b) => b.p-a.p);
+  const best   = sorted[0];
+  const conf   = best.p;
 
-  const best = sorted[0];
-  const conf = best.p;
-
-  // ── Stable sign logic ──────────────────────────────────────────────────────
+  // Stable sign → register letter
   if (cooldown > 0) {
     cooldown--;
   } else {
-    if (best.label === lastLabel) {
-      stableCount++;
-    } else {
-      lastLabel   = best.label;
-      stableCount = 1;
-    }
-    if (stableCount >= STABLE_FRAMES && conf >= CONFIDENCE_THRESH) {
+    if (best.label === lastLabel) { stableCount++; }
+    else { lastLabel = best.label; stableCount = 1; }
+
+    if (stableCount >= STABLE_NEEDED && conf >= CONF_THRESH) {
       accText += best.label;
-      updateTextOut();
+      updateText();
       stableCount = 0;
-      cooldown    = COOLDOWN_FRAMES;
+      cooldown = COOLDOWN;
     }
   }
 
-  // ── Update UI ──────────────────────────────────────────────────────────────
+  // UI updates
   const pct = Math.round(conf * 100);
   predBig.textContent = best.label;
-  predBig.style.color = conf >= CONFIDENCE_THRESH ? '#00ff99' : '#ff9900';
+  predBig.style.color = conf >= CONF_THRESH ? '#00ff99' : '#ff9900';
   confPct.textContent = pct + '%';
   confBar.style.width = pct + '%';
-
-  const holdPct = Math.min(stableCount / STABLE_FRAMES, 1) * 100;
-  holdBar.style.width = holdPct + '%';
+  holdBar.style.width = Math.min(stableCount / STABLE_NEEDED, 1) * 100 + '%';
 
   // Label on canvas
-  const lbl = `${best.label}  ${pct}%`;
-  ctx.font         = 'bold 18px Segoe UI';
-  ctx.fillStyle    = '#000';
+  const lbl = best.label + '  ' + pct + '%';
+  ctx.font = 'bold 18px Segoe UI';
   const tw = ctx.measureText(lbl).width;
-  ctx.fillRect(x1, y1 - 26, tw + 10, 22);
-  ctx.fillStyle = conf >= CONFIDENCE_THRESH ? '#00ff99' : '#ff9900';
-  ctx.fillText(lbl, x1 + 5, y1 - 9);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x1, y1 - 27, tw + 12, 24);
+  ctx.fillStyle = conf >= CONF_THRESH ? '#00ff99' : '#ff9900';
+  ctx.fillText(lbl, x1 + 6, y1 - 9);
 
-  // Top 3 panel
+  // Top 3
   top3El.innerHTML = sorted.slice(0,3).map((item, i) => `
     <div class="top3-row">
       <span class="top3-sign">${item.label}</span>
       <div class="top3-bar-bg">
-        <div class="top3-bar-fill" style="width:${Math.round(item.p*100)}%;
-          background:${i===0?'#00ff99':'#00c6ff'}"></div>
+        <div class="top3-bar-fill" style="width:${Math.round(item.p*100)}%;background:${i===0?'#00ff99':'#00c6ff'}"></div>
       </div>
       <span class="top3-pct">${Math.round(item.p*100)}%</span>
     </div>`).join('');
